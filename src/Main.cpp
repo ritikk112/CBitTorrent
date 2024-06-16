@@ -28,14 +28,14 @@ json decode_bencoded_value_string(const std::string& encoded_value) {
 }
 json decode_bencoded_list(const std::string& encoded_value, int& index ) {
     std::vector<json> decoded_value;
-    while (index < encoded_value.size() - 1) {
+    while (index < encoded_value.size()) {
         if (encoded_value[index] == 'e'){
             index++;
-            return decoded_value;
+            return json(decoded_value);
         }
         if (std::isdigit(encoded_value[index])) {
-            size_t colon_index = encoded_value.find(':');
-            std::string number_string = encoded_value.substr(index, colon_index);
+            size_t colon_index = encoded_value.find(':', index);
+            std::string number_string = encoded_value.substr(index,  colon_index - index);
             int64_t number = std::atoll(number_string.c_str());
             std::string str = encoded_value.substr(colon_index + 1, number);
             decoded_value.push_back(json(str));
@@ -52,6 +52,41 @@ json decode_bencoded_list(const std::string& encoded_value, int& index ) {
     }
     return json(decoded_value);
 }
+json decode_bencoded_dict(const std:: string& encoded_value, int& index) {
+    std::map<json, json> dict;
+    while (index < encoded_value.size()) {
+        if (encoded_value[index] == 'e') {
+            index++;
+            continue;
+        }
+        size_t colon_index = encoded_value.find(':', index);
+        int len = std::stoi(encoded_value.substr(index, colon_index - index));
+        std::string key = encoded_value.substr(colon_index + 1, len);
+        index = colon_index + len + 1;
+        json val;
+        if (encoded_value[index] == 'i') {
+            size_t finish_index = encoded_value.find( 'e', index);
+            std::string num = encoded_value.substr(index + 1, finish_index - index - 1);
+            val = json(std::stoll(num));
+            index = finish_index + 1;
+        } else if (encoded_value[index] == 'l') {
+            index++;
+            val = decode_bencoded_list(encoded_value, index);
+        } else if (encoded_value[index] == 'd') {
+            index++;
+            val = decode_bencoded_dict(encoded_value, index);
+        } else {
+            colon_index = encoded_value.find(':', index);
+            std::string number_string = encoded_value.substr(index, colon_index);
+            int64_t number = std::atoll(number_string.c_str());
+            std::string str = encoded_value.substr(colon_index + 1, number);
+            val = json(str);
+            index = colon_index + number + 1;
+        }
+        dict[json(key)] = json(val);
+    }
+    return json(dict);
+}
 json decode_bencoded_value(const std::string& encoded_value) {
     if (std::isdigit(encoded_value[0])) {
         return decode_bencoded_value_string(encoded_value);
@@ -60,7 +95,11 @@ json decode_bencoded_value(const std::string& encoded_value) {
     } else if (encoded_value[0] == 'l') {
         int index = 1;
         return decode_bencoded_list(encoded_value, index);
-    }else {
+    }else if(encoded_value[0] == 'd'){
+        int index = 1;
+        return decode_bencoded_dict(encoded_value, index);
+    }
+    else{
         throw std::runtime_error("Unhandled encoded value: " + encoded_value);
     }
 }
