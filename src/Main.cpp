@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <fstream>
 #include <cctype>
 #include <cstdlib>
 #include "lib/nlohmann/json.hpp"
@@ -103,6 +104,21 @@ json decode_bencoded_value(const std::string& encoded_value) {
         throw std::runtime_error("Unhandled encoded value: " + encoded_value);
     }
 }
+
+json parse_torrent_file(const std::string& filename) {
+    std::ifstream ifs(filename);
+    if (ifs) {
+        ifs.seekg(0, ifs.end);
+        int length = ifs.tellg();
+        ifs.seekg(0, ifs.beg);
+        char *buffer = new char[length];
+        ifs.read(buffer, length);
+        std::string torrent_data = buffer;
+        return decode_bencoded_value(torrent_data);
+    }
+    throw std::runtime_error("Unable to find file: " + filename);
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " decode <encoded_value>" << std::endl;
@@ -117,7 +133,15 @@ int main(int argc, char* argv[]) {
          std::string encoded_value = argv[2];
          json decoded_value = decode_bencoded_value(encoded_value);
          std::cout << decoded_value.dump() << std::endl;
-    } else {
+    } else if (command == "info") {
+        std::string filename = argv[2];
+        json decoded_data = parse_torrent_file(filename);
+        std::string tracker_url;
+        decoded_data["announce"].get_to(tracker_url);
+        std::cout << "Tracker URL: " << tracker_url << std::endl;
+        std::cout << "Length: " << decoded_data["info"]["length"] << std::endl; 
+    }
+    else {
         std::cerr << "unknown command: " << command << std::endl;
         return 1;
     }
