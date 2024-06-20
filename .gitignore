@@ -46,3 +46,6 @@ CTestTestfile.cmake
 _deps
 .DS_Store
 build/
+
+#codecrafters
+codecrafters.yml
